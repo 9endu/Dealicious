@@ -18,6 +18,7 @@ __pycache__/
 .venv_fix/
 *.db
 sql_app.db
+service_account.json
 
 # Uploads and generated files
 uploads/

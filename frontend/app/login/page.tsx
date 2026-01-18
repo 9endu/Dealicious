@@ -1,104 +1,91 @@
 "use client";
-import { useState } from "react";
-import Link from "next/link";
+import React, { useState } from "react";
+import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowRight } from "lucide-react";
-import api from "@/lib/api";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
-    const [phone, setPhone] = useState("");
-    const [password, setPassword] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [form, setForm] = useState({
+        email: "",
+        password: ""
+    });
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
-        setError("");
-
+        setLoading(true);
         try {
-            const formData = new FormData();
-            formData.append("username", phone);
-            formData.append("password", password);
+            const userCredential = await signInWithEmailAndPassword(auth, form.email, form.password);
+            const user = userCredential.user;
+            const token = await user.getIdToken();
 
-            const res = await api.post("/users/login", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
-
-            // Store Token
-            localStorage.setItem("token", res.data.access_token);
-            localStorage.setItem("user_id", res.data.user_id);
+            localStorage.setItem("token", token);
+            localStorage.setItem("user_id", user.uid);
 
             router.push("/dashboard");
-        } catch (err: any) {
-            setError(err.response?.data?.detail || "Login failed. Check credentials.");
+        } catch (error: any) {
+            console.error(error);
+            alert("Login Failed: " + error.message);
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col justify-center px-6 py-12 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-                <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900 dark:text-white">
-                    Sign in to your account
-                </h2>
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+
+            {/* Background Ambience */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div className="absolute top-[20%] right-[10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px]" />
+                <div className="absolute -bottom-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[120px]" />
             </div>
 
-            <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                <form className="space-y-6" onSubmit={handleLogin}>
-                    <div>
-                        <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200">
-                            Phone Number
-                        </label>
-                        <div className="mt-2">
-                            <input
-                                type="tel"
-                                required
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3"
-                            />
-                        </div>
+            <div className="max-w-md w-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10">
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                        Dealicious
+                    </h1>
+                    <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
+                </div>
+
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div className="space-y-4">
+                        <input
+                            type="email"
+                            required
+                            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-white"
+                            placeholder="Email Address"
+                            value={form.email}
+                            onChange={e => setForm({ ...form, email: e.target.value })}
+                        />
+                        <input
+                            type="password"
+                            required
+                            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-white"
+                            placeholder="Password"
+                            value={form.password}
+                            onChange={e => setForm({ ...form, password: e.target.value })}
+                        />
                     </div>
 
-                    <div>
-                        <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200">
-                                Password
-                            </label>
-                        </div>
-                        <div className="mt-2">
-                            <input
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3"
-                            />
-                        </div>
-                    </div>
-
-                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
-                        >
-                            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign in"}
-                        </button>
-                    </div>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+                    >
+                        {loading ? <Loader2 className="animate-spin" /> : "Sign In"}
+                    </button>
                 </form>
 
-                <p className="mt-10 text-center text-sm text-gray-500">
-                    Not a member?{' '}
-                    <Link href="/signup" className="font-semibold leading-6 text-primary hover:text-indigo-500">
-                        Create an account <ArrowRight className="inline w-4 h-4" />
+                <div className="mt-6 text-center text-sm text-gray-500">
+                    New here?{" "}
+                    <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-medium">
+                        Create Account
                     </Link>
-                </p>
+                </div>
             </div>
         </div>
     );

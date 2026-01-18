@@ -1,55 +1,59 @@
-# Real Auth Implementation
-from datetime import datetime, timedelta
-from typing import Optional
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from backend.config import settings
-from backend.database import get_db
-from backend.models import User
+from firebase_admin import auth
+from backend.firebase_setup import db
+from backend.schemas import UserResponse
+from pydantic import BaseModel
+from typing import Optional
 
-# Configuration
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login") # Pointing to our login endpoint
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+# Simple User Model for Auth
+class UserInDB(BaseModel):
+    id: str
+    phone: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    trust_score: float = 50.0
+    is_email_verified: bool = False
+    is_phone_verified: bool = False
     
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    class Config:
+        from_attributes = True
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+        decoded_token = auth.verify_id_token(token)
+        uid = decoded_token['uid']
         
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
+        user_doc = db.collection('users').document(uid).get()
+        if not user_doc.exists:
+             raise credentials_exception
+             
+        user_data = user_doc.to_dict()
+        user_data['id'] = uid 
+        
+        return UserInDB(**user_data)
+    except Exception:
         raise credentials_exception
-    return user
+
+def get_decoded_token(token: str = Depends(oauth2_scheme)):
+    """
+    Verifies the token signature only. Does NOT check DB existence.
+    Used for the /sync endpoint where the user doc might not exist yet.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        decoded_token = auth.verify_id_token(token)
+        return decoded_token
+    except Exception:
+        raise credentials_exception

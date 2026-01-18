@@ -1,45 +1,27 @@
-from sqlalchemy.orm import Session
-from backend.models import User, Transaction, TransactionType, TransactionStatus
+from backend.firebase_setup import db
+from firebase_admin import firestore
 
 class TrustService:
-    def calculate_trust_score(self, user: User, db: Session) -> float:
-        """
-        Base Score: 50
-        + Verified Phone: +20
-        + Verified Email: +10
-        + Successful Transaction: +5 (capped at 30)
-        - Failed/Disputed Transaction: -20
-        """
-        score = 50.0
+    def update_user_score(self, user_id: str) -> float:
+        user_ref = db.collection('users').document(user_id)
+        user_doc = user_ref.get()
         
-        # Phone verification check
-        if user.is_phone_verified:
-            score += 20.0
+        if not user_doc.exists:
+            return 50.0
             
-        if user.is_email_verified:
+        user_data = user_doc.to_dict()
+        
+        score = 50.0
+        if user_data.get('is_phone_verified'):
+            score += 20.0
+        if user_data.get('is_email_verified'):
             score += 10.0
             
-        # Transaction History
-        # We need to query transactions
-        successful_tx = db.query(Transaction).filter(
-            (Transaction.from_user_id == user.id) | (Transaction.to_user_id == user.id),
-            Transaction.status == TransactionStatus.SUCCESS
-        ).count()
+        # Cap at 100
+        score = min(score, 100.0)
         
-        score += min(successful_tx * 5, 30)
-        
-        # Penalties could be added here based on dispute flags (to be implemented)
-        
-        return min(max(score, 0.0), 100.0)
-
-    def update_user_score(self, user_id: str, db: Session):
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            new_score = self.calculate_trust_score(user, db)
-            user.trust_score = new_score
-            db.commit()
-            db.refresh(user)
-            return new_score
-        return 0.0
+        # Update
+        user_ref.update({"trust_score": score})
+        return score
 
 trust_service = TrustService()
