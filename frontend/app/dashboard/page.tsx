@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import OfferCard from "@/components/OfferCard";
 import api from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import CreativeLoader from "@/components/CreativeLoader";
 
 export default function DashboardPage() {
     const router = useRouter();
     const [isAuthorized, setIsAuthorized] = useState(false);
-    const [offers, setOffers] = useState<any[]>([]);
+    const [groups, setGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -18,16 +18,16 @@ export default function DashboardPage() {
             router.push('/login');
         } else {
             setIsAuthorized(true);
-            fetchOffers();
+            fetchGroups();
         }
     }, [router]);
 
-    const fetchOffers = async () => {
+    const fetchGroups = async () => {
         try {
-            const res = await api.get("/offers/");
-            setOffers(res.data);
+            const res = await api.get("/groups/"); // Fetch Groups instead of Offers
+            setGroups(res.data);
         } catch (error) {
-            console.error("Failed to fetch offers", error);
+            console.error("Failed to fetch groups", error);
         } finally {
             setLoading(false);
         }
@@ -50,18 +50,16 @@ export default function DashboardPage() {
             <main className="max-w-md mx-auto px-4 py-6 space-y-6">
 
                 {loading ? (
-                    <div className="flex justify-center py-10">
-                        <Loader2 className="animate-spin text-primary" />
-                    </div>
-                ) : offers.length === 0 ? (
+                    <CreativeLoader />
+                ) : groups.length === 0 ? (
                     <div className="text-center py-10 text-gray-400">
                         <p>No active deals found.</p>
                         <p className="text-sm">Be the first to post!</p>
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {offers.map(offer => (
-                            <OfferCard key={offer.id} offer={offer} />
+                        {groups.map(group => (
+                            <OfferCard key={group.id} group={group} />
                         ))}
                     </div>
                 )}

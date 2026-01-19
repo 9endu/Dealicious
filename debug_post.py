@@ -1,46 +1,46 @@
 import requests
 import json
-from backend.models import User
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from backend.auth import create_access_token
+import firebase_admin
+from firebase_admin import auth, credentials
+import os
 
-# 1. Get a valid user token
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-db = SessionLocal()
-user = db.query(User).first()
-if not user:
-    print("No user found in DB to test with.")
-    exit()
+# Setup Firebase Admin SDK to get a valid token
+cred_path = "backend/service_account.json"
+if not os.path.exists(cred_path):
+    print(f"Service account not found at {cred_path}")
+    exit(1)
 
-token = create_access_token({"sub": user.id})
-headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-db.close()
+if not firebase_admin._apps:
+    cred = credentials.Certificate(cred_path)
+    firebase_admin.initialize_app(cred)
 
-# 2. Payload mimicking frontend
-payload = {
-    "product_url": "https://amazon.in/test",
-    "title": "Debug Deal",
-    "price": 1000.0,
-    "location": "Debug Location"
-}
+# Create a custom token or verify an existing one?
+# For script, we might need a valid ID token. 
+# It's hard to get a valid ID token purely from Admin SDK without a client login exchange.
+# Alternatively, we can use a mocked user ID if we temporarily disable auth in backend, OR
+# We can just check the health endpoint first.
 
-print(f"Testing POST /offers/ with user {user.id}")
-try:
-    resp = requests.post("http://localhost:8000/offers/", json=payload, headers=headers)
-    print(f"Offer Status: {resp.status_code}")
-    if resp.status_code == 200:
-        offer_data = resp.json()
-        offer_id = offer_data["id"]
-        print(f"Offer Created: {offer_id}")
-        
-        # 3. Create Group
-        group_payload = {"offer_id": offer_id, "target_size": 2}
-        print("Testing POST /groups/")
-        g_resp = requests.post("http://localhost:8000/groups/", json=group_payload, headers=headers)
-        print(f"Group Status: {g_resp.status_code}")
-        print(f"Group Response: {g_resp.text}")
-except Exception as e:
-    print(f"Request failed: {e}")
+BASE_URL = "http://localhost:8000"
+
+def check_health():
+    try:
+        print(f"Checking health at {BASE_URL}/health...")
+        res = requests.get(f"{BASE_URL}/health")
+        print(f"Status: {res.status_code}")
+        print(f"Response: {res.json()}")
+        return True
+    except requests.exceptions.ConnectionError:
+        print("CONNECTION ERROR: Could not connect to backend. Is it running?")
+        return False
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return False
+
+if __name__ == "__main__":
+    if check_health():
+        print("\nBackend is reachable.")
+        # We won't try to post because getting a valid Firebase ID token from python script 
+        # requires simulating a client login which is complex without keys.
+        # But "Network Error" usually means connection refused (backend not running).
+    else:
+        print("\nBACKEND SEEMS DOWN.")

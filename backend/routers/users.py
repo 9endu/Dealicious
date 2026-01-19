@@ -5,6 +5,7 @@ from backend.firebase_setup import db
 from backend.auth import get_current_user, UserInDB, get_decoded_token
 from backend.schemas import UserResponse
 from firebase_admin import firestore
+from datetime import datetime
 
 router = APIRouter()
 
@@ -39,8 +40,11 @@ def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)
         }
         user_ref.set(new_data)
         
-        # Return with ID explicitly (though it is in new_data)
-        return new_data
+        # Prepare response (Pydantic cannot validate SERVER_TIMESTAMP)
+        response_data = new_data.copy()
+        response_data['created_at'] = datetime.utcnow()
+        
+        return response_data
     else:
         data = doc.to_dict()
         data['id'] = uid

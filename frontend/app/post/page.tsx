@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
-import { Loader2, ShieldCheck, MapPin, Users, IndianRupee } from "lucide-react";
+import { ShieldCheck, MapPin, Users, IndianRupee } from "lucide-react";
+import CreativeLoader from "@/components/CreativeLoader";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 
@@ -54,7 +55,8 @@ export default function PostOffer() {
             </header>
 
             <main className="max-w-md mx-auto p-4">
-                <form onSubmit={handleCreate} className="space-y-6">
+                {isLoading && <CreativeLoader fullScreen={true} />}
+                <form onSubmit={handleCreate} className={isLoading ? "hidden" : "space-y-6"}>
 
                     {/* Product Link */}
                     <div>
@@ -150,7 +152,7 @@ export default function PostOffer() {
                         disabled={isLoading}
                         className="w-full bg-primary text-white font-semibold py-4 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all active:scale-[0.98] flex justify-center"
                     >
-                        {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Post Deal"}
+                        Post Deal
                     </button>
 
                     <div className="text-center text-xs text-gray-400 px-8">

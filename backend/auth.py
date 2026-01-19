@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from firebase_admin import auth
+from firebase_admin import auth, firestore
+
 from backend.firebase_setup import db
 from backend.schemas import UserResponse
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
 # Simple User Model for Auth
 class UserInDB(BaseModel):
     id: str
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
     trust_score: float = 50.0
@@ -33,13 +34,35 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         
         user_doc = db.collection('users').document(uid).get()
         if not user_doc.exists:
-             raise credentials_exception
-             
-        user_data = user_doc.to_dict()
+             print(f"DEBUG: User {uid} missing in Firestore. Token info: {decoded_token}")
+             user_data = {
+                "id": uid,
+                "email": decoded_token.get('email'),
+                "phone": decoded_token.get('phone_number'),
+                "full_name": decoded_token.get('name', 'Unknown User'),
+                "trust_score": 50.0,
+                "is_email_verified": decoded_token.get('email_verified', False),
+                "is_phone_verified": False,
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "kyc_level": "BASIC"
+             }
+             print(f"DEBUG: Attempting to create user {uid}...")
+             db.collection('users').document(uid).set(user_data)
+             print(f"DEBUG: User {uid} created successfully.")
+        else:
+            print(f"DEBUG: User {uid} found in Firestore.")
+            user_data = user_doc.to_dict()
+            
         user_data['id'] = uid 
         
         return UserInDB(**user_data)
-    except Exception:
+    except Exception as e:
+        import traceback
+        with open("auth_debug.log", "a") as f:
+            f.write(f"AUTH ERROR DETAILED: {str(e)}\n")
+            f.write(traceback.format_exc())
+            f.write("\n")
+        print(f"AUTH ERROR DETAILED: {str(e)}")
         raise credentials_exception
 
 def get_decoded_token(token: str = Depends(oauth2_scheme)):
