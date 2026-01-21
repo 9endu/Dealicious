@@ -2,9 +2,15 @@ from pydantic import BaseModel, HttpUrl, Field, field_validator
 import re
 from typing import Optional, List, Dict
 from datetime import datetime
-from backend.models import KYCLevel, OfferStatus, GroupStatus
+from backend.enums import KYCLevel, OfferStatus, GroupStatus
 
 # --- User Schemas ---
+class AddressSchema(BaseModel):
+    street: str
+    city: str
+    state: str
+    pincode: str
+    
 class UserBase(BaseModel):
     phone: str
     email: Optional[str] = None
@@ -34,8 +40,7 @@ class UserResponse(UserBase):
     kyc_level: KYCLevel
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+
 
 # --- Offer Schemas ---
 class OfferBase(BaseModel):
@@ -50,6 +55,8 @@ class OfferCreate(BaseModel):
     title: Optional[str] = None 
     price: Optional[float] = None
     location: Optional[str] = None
+    address_details: Optional[AddressSchema] = None
+
 
 class OfferVerificationResult(BaseModel):
     is_valid: bool
@@ -66,6 +73,8 @@ class OfferResponse(OfferBase):
     status: OfferStatus
     offer_image: Optional[str] = None
     location: Optional[str] = None
+    address_details: Optional[AddressSchema] = None
+
     
     class Config:
         from_attributes = True
@@ -74,6 +83,12 @@ class OfferResponse(OfferBase):
 class GroupCreate(BaseModel):
     offer_id: str
     target_size: int = Field(default=2, ge=2)
+    address_details: Optional[AddressSchema] = None
+    
+class GroupJoin(BaseModel):
+    payment_id: Optional[str] = None
+    address_details: AddressSchema
+
 
 class GroupResponse(BaseModel):
     id: str

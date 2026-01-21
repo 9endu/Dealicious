@@ -34,7 +34,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         
         user_doc = db.collection('users').document(uid).get()
         if not user_doc.exists:
-             print(f"DEBUG: User {uid} missing in Firestore. Token info: {decoded_token}")
              user_data = {
                 "id": uid,
                 "email": decoded_token.get('email'),
@@ -46,11 +45,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "kyc_level": "BASIC"
              }
-             print(f"DEBUG: Attempting to create user {uid}...")
              db.collection('users').document(uid).set(user_data)
-             print(f"DEBUG: User {uid} created successfully.")
         else:
-            print(f"DEBUG: User {uid} found in Firestore.")
             user_data = user_doc.to_dict()
             
         user_data['id'] = uid 

@@ -37,6 +37,11 @@ export default function GroupPage({ params }: { params: { id: string } }) {
     const [error, setError] = useState("");
     const [otpVisible, setOtpVisible] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [joinModalOpen, setJoinModalOpen] = useState(false);
+    const [joinAddress, setJoinAddress] = useState({ street: "", city: "", state: "", pincode: "" });
+    const [verifyOtp, setVerifyOtp] = useState("");
+    const [verifyingMember, setVerifyingMember] = useState("");
+
 
     useEffect(() => {
         const uid = localStorage.getItem('user_id');
@@ -67,34 +72,73 @@ export default function GroupPage({ params }: { params: { id: string } }) {
         return <span className="text-gray-500">{group.status}</span>;
     };
 
-    const handlePayment = async () => {
-        if (!group) return;
-
-        // Mocking for now
-        const options = {
-            key: "YOUR_RAZORPAY_KEY_ID",
-            amount: (group.offer.price) * 100, // Full price or share? For logic, assume share
-            currency: "INR",
-            name: "Dealicious",
-            description: "Payment for " + group.offer.title,
-            handler: function (response: any) {
-                alert("Payment Successful: " + response.razorpay_payment_id);
-                // Call backend to verify and update status
-                // api.post(`/groups/${group.id}/join`, { payment_id: response.razorpay_payment_id })
-            },
-            prefill: {
-                name: "User Name",
-                email: "user@example.com",
-                contact: "9999999999"
-            },
-            theme: {
-                color: "#6366f1"
-            }
-        };
-
-        const rzp1 = new (window as any).Razorpay(options);
-        rzp1.open();
+    const handleJoinClick = () => {
+        setJoinModalOpen(true);
     };
+
+    const confirmJoin = async () => {
+        if (!joinAddress.street || !joinAddress.city || !joinAddress.pincode || !joinAddress.state) {
+            alert("Please enter full address including State");
+            return;
+        }
+
+        // SIMULATED PAYMENT DEMO
+        // No real Razorpay call to avoid config barriers
+
+        if (!confirm(`Demo Payment: Pay ₹${((group!.offer.price / group!.target_size)).toFixed(2)}?`)) return;
+
+        try {
+            // Simulate Network Delay
+            await new Promise(r => setTimeout(r, 1000));
+
+            await api.post(`/groups/${group!.id}/join`, {
+                payment_id: "demo_pay_" + Math.random().toString(36).substring(7),
+                address_details: joinAddress
+            });
+
+            setJoinModalOpen(false);
+            fetchGroup();
+            alert("Payment Simulated & Joined Successfully!");
+
+        } catch (e: any) {
+            console.error(e);
+            const msg = e.response?.data?.detail || e.message || "Unknown Error";
+            alert("Join Failed: " + msg);
+        }
+
+    };
+
+
+    // Receiver Actions
+    const confirmOrder = async () => {
+        if (!confirm("Have you placed the order? Funds will be locked.")) return;
+        try {
+            await api.post(`/groups/${group!.id}/confirm_order`);
+            fetchGroup();
+        } catch (e) { alert("Error confirming order"); }
+    };
+
+    const confirmArrival = async () => {
+        if (!confirm("Has the package arrived? OTPs will be generated.")) return;
+        try {
+            await api.post(`/groups/${group!.id}/confirm_arrival`);
+            fetchGroup();
+        } catch (e) { alert("Error confirming arrival"); }
+    };
+
+    const verifyHandoff = async () => {
+        try {
+            await api.post(`/groups/${group!.id}/verify_handoff`, {
+                otp: verifyOtp,
+                member_id: verifyingMember
+            });
+            alert("Verified!");
+            setVerifyingMember("");
+            setVerifyOtp("");
+            fetchGroup();
+        } catch (e) { alert("Invalid OTP"); }
+    }
+
 
     if (loading) return <CreativeLoader />;
     if (error || !group) return (
@@ -160,13 +204,39 @@ export default function GroupPage({ params }: { params: { id: string } }) {
                             Funds are held in Escrow.
                         </p>
                         <button
-                            onClick={handlePayment}
+                            onClick={handleJoinClick}
                             className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition-colors"
                         >
                             Pay & Join
                         </button>
                     </div>
                 )}
+
+                {/* Join Modal */}
+                {joinModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-sm space-y-4">
+                            <h3 className="font-bold text-lg">Confirm Details</h3>
+                            <div className="space-y-3">
+                                <input className="w-full p-2 border rounded-lg dark:bg-slate-800" placeholder="Street Address"
+                                    value={joinAddress.street} onChange={e => setJoinAddress({ ...joinAddress, street: e.target.value })} />
+                                <div className="flex gap-2">
+                                    <input className="w-full p-2 border rounded-lg dark:bg-slate-800" placeholder="City"
+                                        value={joinAddress.city} onChange={e => setJoinAddress({ ...joinAddress, city: e.target.value })} />
+                                    <input className="w-full p-2 border rounded-lg dark:bg-slate-800" placeholder="Pincode"
+                                        value={joinAddress.pincode} onChange={e => setJoinAddress({ ...joinAddress, pincode: e.target.value })} />
+                                </div>
+                                <input className="w-full p-2 border rounded-lg dark:bg-slate-800" placeholder="State"
+                                    value={joinAddress.state} onChange={e => setJoinAddress({ ...joinAddress, state: e.target.value })} />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={() => setJoinModalOpen(false)} className="flex-1 py-2 text-gray-500">Cancel</button>
+                                <button onClick={confirmJoin} className="flex-1 bg-green-500 text-white py-2 rounded-lg font-medium">Proceed to Pay</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
 
                 {group.status === 'FORMING' && isMember && (
                     <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 border border-green-200 dark:border-green-800">
@@ -184,8 +254,27 @@ export default function GroupPage({ params }: { params: { id: string } }) {
                         <p className="text-sm opacity-80 mb-4">
                             Receiver has placed the order. You will be notified when it arrives.
                         </p>
+                        {/* Receiver Actions */}
+                        {group.receiver_id === currentUserId && (
+                            <div className="mt-4 space-y-3">
+                                <button onClick={confirmOrder} className="w-full bg-white text-indigo-600 py-2 rounded-lg font-bold text-sm">
+                                    I have Placed the Order
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
+
+                {group.status === 'ORDERED' && group.receiver_id === currentUserId && (
+                    <div className="bg-white dark:bg-paper rounded-2xl p-6 border border-gray-200 dark:border-gray-800">
+                        <h3 className="font-bold">Order Verification</h3>
+                        <p className="text-sm text-gray-500 mb-4">Confirm when package arrives at your location.</p>
+                        <button onClick={confirmArrival} className="w-full bg-green-600 text-white py-2 rounded-lg font-bold">
+                            Package Received
+                        </button>
+                    </div>
+                )}
+
 
                 {/* OTP Section (Visible when Delivered) */}
                 {group.status === 'DELIVERED' && (
@@ -228,6 +317,21 @@ export default function GroupPage({ params }: { params: { id: string } }) {
                             )}>
                                 {m.status}
                             </span>
+                            {/* Receiver Verify OTP Input */}
+                            {group.status === 'DELIVERED' && group.receiver_id === currentUserId && m.user_id !== currentUserId && m.status !== 'DELIVERED_CONFIRMED' && (
+                                <div className="ml-2">
+                                    {verifyingMember === m.user_id ? (
+                                        <div className="flex gap-1">
+                                            <input className="w-16 text-xs p-1 border rounded" placeholder="OTP"
+                                                value={verifyOtp} onChange={e => setVerifyOtp(e.target.value)} />
+                                            <button onClick={verifyHandoff} className="bg-green-500 text-white text-xs px-2 rounded">✓</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setVerifyingMember(m.user_id)} className="text-xs text-blue-500 underline">Verify</button>
+                                    )}
+                                </div>
+                            )}
+
                         </div>
                     ))}
                 </div>

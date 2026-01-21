@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from backend.firebase_setup import db
 from backend.auth import get_current_user, UserInDB, get_decoded_token
 from backend.schemas import UserResponse
+from backend.enums import KYCLevel
 from firebase_admin import firestore
 from datetime import datetime
 
@@ -25,23 +26,30 @@ def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)
     user_ref = db.collection('users').document(uid)
     doc = user_ref.get()
     
+    from backend.services.trust import calculate_initial_trust_score
+    
     if not doc.exists:
         # Create new user doc
-        new_data = {
+        user_dict = {
             "id": uid,
             "full_name": user_data.full_name,
             "phone": user_data.phone,
             "email": user_data.email,
-            "trust_score": 50.0,
             "is_email_verified": False,
             "is_phone_verified": False,
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "kyc_level": "BASIC"
+            "kyc_level": KYCLevel.BASIC
         }
-        user_ref.set(new_data)
         
-        # Prepare response (Pydantic cannot validate SERVER_TIMESTAMP)
-        response_data = new_data.copy()
+        # Calculate initial score
+        user_dict['trust_score'] = calculate_initial_trust_score(user_dict)
+        
+        # Add timestamp
+        user_dict['created_at'] = firestore.SERVER_TIMESTAMP
+        
+        user_ref.set(user_dict)
+        
+        # Prepare response
+        response_data = user_dict.copy()
         response_data['created_at'] = datetime.utcnow()
         
         return response_data

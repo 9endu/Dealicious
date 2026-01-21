@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "YOUR_SUPER_SECRET_KEY_HERE_CHANGE_IN_PROD"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # AI & Geo Services
+    GEOAPIFY_API_KEY: Optional[str] = None
+    
+    # Payments
+    RAZORPAY_KEY_ID: Optional[str] = None
+    RAZORPAY_KEY_SECRET: Optional[str] = None
+
+
 
     @property
     def database_url(self) -> str:

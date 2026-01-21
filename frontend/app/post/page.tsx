@@ -14,8 +14,13 @@ export default function PostOffer() {
         product_url: "",
         title: "",
         price: "",
-        location: "",
+        // location: "", // Replace simple string with structured
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
         target_size: "2"
+
     });
 
     const splitPrice = formData.price ? (parseFloat(formData.price) / parseInt(formData.target_size)).toFixed(0) : "0";
@@ -30,14 +35,28 @@ export default function PostOffer() {
                 product_url: formData.product_url,
                 title: formData.title,
                 price: parseFloat(formData.price),
-                location: formData.location
+                location: `${formData.street}, ${formData.city}`, // Fallback string
+                address_details: {
+                    street: formData.street,
+                    city: formData.city,
+                    state: formData.state,
+                    pincode: formData.pincode
+                }
             });
+
 
             // 2. Create Group
             await api.post("/groups/", {
                 offer_id: offerRes.data.id,
-                target_size: parseInt(formData.target_size)
+                target_size: parseInt(formData.target_size),
+                address_details: {
+                    street: formData.street,
+                    city: formData.city,
+                    state: formData.state,
+                    pincode: formData.pincode
+                }
             });
+
 
             router.push("/dashboard");
         } catch (e: any) {
@@ -61,14 +80,32 @@ export default function PostOffer() {
                     {/* Product Link */}
                     <div>
                         <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Product Link</label>
-                        <input
-                            type="url"
-                            required
-                            placeholder="https://amazon.in/..."
-                            className="w-full bg-white dark:bg-paper border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
-                            value={formData.product_url}
-                            onChange={(e) => setFormData({ ...formData, product_url: e.target.value })}
-                        />
+                        <div className="flex gap-2">
+                            <input
+                                type="url"
+                                required
+                                placeholder="https://amazon.in/..."
+                                className="flex-1 bg-white dark:bg-paper border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
+                                value={formData.product_url}
+                                onChange={(e) => setFormData({ ...formData, product_url: e.target.value })}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!formData.product_url) {
+                                        alert("Please enter a product URL first.");
+                                        return;
+                                    }
+                                    window.open(`https://flash.co/${formData.product_url}`, '_blank');
+                                }}
+                                className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-semibold px-4 py-3 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap"
+                            >
+                                Analyze Prices
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1 ml-1">
+                            Click analyze to compare prices on Flash.co before posting.
+                        </p>
                     </div>
 
                     {/* Title */}
@@ -119,21 +156,52 @@ export default function PostOffer() {
                         </div>
                     </div>
 
-                    {/* Location */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Your Location</label>
+                    {/* Address Fields */}
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address for Delivery</label>
+
+                        {/* Street */}
                         <div className="relative">
                             <MapPin className="w-4 h-4 absolute left-3 top-3.5 text-gray-400" />
                             <input
                                 type="text"
                                 required
-                                placeholder="e.g. Hostel 4, Block A"
+                                placeholder="Street Address / Building"
                                 className="w-full bg-white dark:bg-paper border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
-                                value={formData.location}
-                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                value={formData.street}
+                                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                             />
                         </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                type="text"
+                                required
+                                placeholder="City"
+                                className="w-full bg-white dark:bg-paper border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
+                                value={formData.city}
+                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                            />
+                            <input
+                                type="text"
+                                required
+                                placeholder="Pincode"
+                                className="w-full bg-white dark:bg-paper border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
+                                value={formData.pincode}
+                                onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                            />
+                        </div>
+
+                        <input
+                            type="text"
+                            required
+                            placeholder="State"
+                            className="w-full bg-white dark:bg-paper border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
+                            value={formData.state}
+                            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                        />
                     </div>
+
 
                     {/* Summary Card */}
                     {formData.price && (

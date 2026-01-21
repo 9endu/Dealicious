@@ -8,13 +8,14 @@ from backend.config import settings
 
 class PaymentService:
     def __init__(self):
-        # We try to load keys, else fail gracefully or use dummy
         self.client = None
         try:
-            # self.client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-            pass 
-        except:
-            pass
+             # Only initialize if keys are present
+             if settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET:
+                self.client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        except Exception as e:
+            print(f"Razorpay Init Failed: {e}")
+
 
     def create_order(self, amount: float, currency: str = "INR") -> dict:
         """

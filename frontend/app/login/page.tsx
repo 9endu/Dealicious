@@ -18,6 +18,12 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
+            // ADMIN CHECK (Hardcoded as requested)
+            if (form.email === "admin@gmail.com" && form.password === "admin123") {
+                router.push("/admin");
+                return;
+            }
+
             const userCredential = await signInWithEmailAndPassword(auth, form.email, form.password);
             const user = userCredential.user;
             const token = await user.getIdToken();

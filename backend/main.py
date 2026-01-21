@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
 # Database initialized in routers via Firebase
-from backend.routers import users, offers, groups
+from backend.routers import users, offers, groups, payments
 
 
 app = FastAPI(
@@ -23,6 +23,10 @@ app.add_middleware(
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(offers.router, prefix="/offers", tags=["offers"])
 app.include_router(groups.router, prefix="/groups", tags=["groups"])
+app.include_router(groups.router, prefix="/groups", tags=["groups"])
+app.include_router(payments.router, prefix="/payments", tags=["payments"])
+from backend.routers import admin
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
 @app.get("/")
 def root():
