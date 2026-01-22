@@ -40,12 +40,7 @@
    ```
    Application will be running at `http://localhost:3000`.
 
-## Admin Dashboard
-1. Go to `http://localhost:3000/login`.
-2. Login with credentials:
-   - Email: `admin@gmail.com`
-   - Password: `admin123`
-3. You will be redirected to `/admin` to view Users, Offers, and Groups.
+
 
 ## Troubleshooting
 - **Backend Connection Error**: Ensure backend is running on port 8000.
