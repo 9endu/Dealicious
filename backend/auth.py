@@ -48,16 +48,17 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
              db.collection('users').document(uid).set(user_data)
         else:
             user_data = user_doc.to_dict()
+            # Self-heal: If name missing in DB but in token, update it
+            if not user_data.get('full_name') and decoded_token.get('name'):
+                 print(f"DEBUG: Self-healing name for {uid} -> {decoded_token.get('name')}")
+                 user_data['full_name'] = decoded_token.get('name')
+                 db.collection('users').document(uid).update({'full_name': user_data['full_name']})
             
         user_data['id'] = uid 
         
         return UserInDB(**user_data)
     except Exception as e:
         import traceback
-        with open("auth_debug.log", "a") as f:
-            f.write(f"AUTH ERROR DETAILED: {str(e)}\n")
-            f.write(traceback.format_exc())
-            f.write("\n")
         print(f"AUTH ERROR DETAILED: {str(e)}")
         raise credentials_exception
 

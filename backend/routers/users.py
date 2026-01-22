@@ -54,8 +54,22 @@ def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)
         
         return response_data
     else:
+        # Update existing user data (e.g. if they signed up via different method or lazy creation happened)
         data = doc.to_dict()
         data['id'] = uid
+        
+        updates = {}
+        if not data.get('full_name') and user_data.full_name:
+            updates['full_name'] = user_data.full_name
+            data['full_name'] = user_data.full_name
+            
+        if not data.get('phone') and user_data.phone:
+            updates['phone'] = user_data.phone
+            data['phone'] = user_data.phone
+            
+        if updates:
+            user_ref.update(updates)
+            
         return data
 
 @router.get("/me", response_model=UserResponse)

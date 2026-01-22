@@ -22,6 +22,9 @@ export default function PostOffer() {
         target_size: "2"
 
     });
+    // AI Match States
+    const [matchData, setMatchData] = useState<any>(null); // { duplicate_of, similar_offers, created_id }
+    const [showMatchModal, setShowMatchModal] = useState(false);
 
     const splitPrice = formData.price ? (parseFloat(formData.price) / parseInt(formData.target_size)).toFixed(0) : "0";
 
@@ -46,6 +49,21 @@ export default function PostOffer() {
 
 
             // 2. Create Group
+
+            // CHECK FOR AI MATCHES
+            if (offerRes.data.duplicate_of || (offerRes.data.similar_offers && offerRes.data.similar_offers.length > 0)) {
+                setMatchData({
+                    duplicate_of: offerRes.data.duplicate_of,
+                    matched_group_id: offerRes.data.matched_group_id,
+                    similar_offers: offerRes.data.similar_offers,
+                    created_id: offerRes.data.id,
+                    matching_reason: offerRes.data.matching_reason
+                });
+                setShowMatchModal(true);
+                return; // Stop here, let user decide in Modal
+            }
+
+            // 2. Create Group (If no match found, proceed normally)
             await api.post("/groups/", {
                 offer_id: offerRes.data.id,
                 target_size: parseInt(formData.target_size),
@@ -57,6 +75,9 @@ export default function PostOffer() {
                 }
             });
 
+            const gid = offerRes.data.id; // Just redirecting to dashboard for now
+            // Ideally we get the GROUP ID from group response, but waiting for that call
+            // Since we returned early above, this flow is safe.
 
             router.push("/dashboard");
         } catch (e: any) {
@@ -231,7 +252,113 @@ export default function PostOffer() {
                     </div>
                 </form>
             </main>
+
             <Navbar />
+
+            {/* Match Modal */}
+            {showMatchModal && matchData && (
+                <MatchModal
+                    data={matchData}
+                    onClose={() => setShowMatchModal(false)}
+                    onJoin={async (offerId: string) => {
+                        // User chose to join existing offer
+
+                        // 1. Delete the duplicate they just created (optional cleanup)
+                        try {
+                            // api.delete(`/offers/${matchData.created_id}`); 
+                        } catch (e) { }
+
+                        // 2. Redirect to that offer/group
+                        if (matchData.matched_group_id && matchData.duplicate_of === offerId) {
+                            router.push(`/group/${matchData.matched_group_id}`);
+                            return;
+                        }
+
+                        // Check similar offers
+                        const sim = matchData.similar_offers?.find((o: any) => o.id === offerId);
+                        if (sim && sim.group_id) {
+                            router.push(`/group/${sim.group_id}`);
+                            return;
+                        }
+
+                        // Fallback
+                        router.push("/dashboard");
+                    }}
+                    onContinue={async () => {
+                        // User ignored warning, create group anyway
+                        try {
+                            await api.post("/groups/", {
+                                offer_id: matchData.created_id,
+                                target_size: parseInt(formData.target_size),
+                                address_details: {
+                                    street: formData.street,
+                                    city: formData.city,
+                                    state: formData.state,
+                                    pincode: formData.pincode
+                                }
+                            });
+                            router.push("/dashboard");
+                        } catch (e) {
+                            alert("Failed to create group");
+                        }
+                    }}
+                />
+            )}
         </div>
     );
+}
+
+function MatchModal({ data, onClose, onJoin, onContinue }: any) {
+    const isDuplicate = !!data.duplicate_of;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="p-6">
+                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-4 mx-auto">
+                        <Users className="w-6 h-6 text-indigo-600" />
+                    </div>
+
+                    <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
+                        {isDuplicate ? "Duplicate Deal Found!" : "Similar Deal Found"}
+                    </h3>
+
+                    <p className="text-sm text-center text-gray-500 mb-6">
+                        {isDuplicate
+                            ? "This exact product is already being bought by a group. Joining them is faster/cheaper!"
+                            : "We found a similar active group. Did you mean this?"}
+                    </p>
+
+                    {/* Similar/Duplicate Item Card */}
+                    {data.similar_offers?.slice(0, 1).map((offer: any) => (
+                        <div key={offer.id} className="bg-gray-50 dark:bg-slate-800 p-3 rounded-xl mb-6 border border-gray-100 dark:border-gray-700">
+                            <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{offer.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">Match Score: {(offer.score * 100).toFixed(0)}%</p>
+                        </div>
+                    ))}
+                    {isDuplicate && (
+                        <div className="bg-red-50 p-2 rounded text-xs text-red-600 mb-4 text-center">
+                            Reason: {data.matching_reason}
+                        </div>
+                    )}
+
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => onJoin(data.duplicate_of || data.similar_offers[0].id)}
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors"
+                        >
+                            Yes, Join Existing Group
+                        </button>
+
+                        <button
+                            onClick={onContinue}
+                            className="w-full py-3 bg-white border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                        >
+                            No, Create My Own
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
 }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.firebase_setup import db
 from backend.auth import get_current_user, UserInDB
-from backend.schemas import GroupCreate, GroupResponse, GroupJoin
+from backend.schemas import GroupCreate, GroupResponse, GroupJoin, ChatMessageCreate
 
 from backend.enums import GroupStatus
 from firebase_admin import firestore
@@ -38,6 +38,7 @@ def create_group(group: GroupCreate, current_user: UserInDB = Depends(get_curren
         "created_at": datetime.utcnow(),
         "members": [{
             "user_id": current_user.id,
+            "full_name": current_user.full_name or "Unknown User",
             "status": "JOINED",
             "trust_score": current_user.trust_score,
             "joined_at": datetime.utcnow().isoformat(),
@@ -174,6 +175,7 @@ def join_group(group_id: str, join_data: GroupJoin, current_user: UserInDB = Dep
         # Add Member
         new_member = {
             "user_id": current_user.id,
+            "full_name": current_user.full_name or "Unknown User", 
             "status": "JOINED",
             "trust_score": current_user.trust_score,
             "joined_at": datetime.utcnow().isoformat(),
@@ -426,3 +428,73 @@ def verify_handoff(group_id: str, otp: str, member_id: str, current_user: UserIn
     g_data.update(updates)
     g_data['id'] = group_id
     return g_data
+
+@router.post("/{group_id}/chat")
+def send_chat_message(group_id: str, message: ChatMessageCreate, current_user: UserInDB = Depends(get_current_user)):
+    
+    group_ref = db.collection('groups').document(group_id)
+    doc = group_ref.get()
+    
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    g_data = doc.to_dict()
+    
+    # Check membership
+    is_member = any(m['user_id'] == current_user.id for m in g_data.get('members', []))
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    # Add Message to Subcollection
+    msg_data = {
+        "text": message.text,
+        "userId": current_user.id,
+        "userName": current_user.full_name or "Unknown User",
+        "createdAt": firestore.SERVER_TIMESTAMP
+    }
+    
+    group_ref.collection('messages').add(msg_data)
+    
+    # Retroactive Fix: Update member name in group list if missing/unknown
+    need_update = False
+    updated_members = []
+    
+    for m in g_data.get('members', []):
+        if m['user_id'] == current_user.id:
+            # If name is missing or is explicitly "Unknown User", update it
+            if (not m.get('full_name') or m.get('full_name') == "Unknown User") and current_user.full_name:
+                m['full_name'] = current_user.full_name
+                need_update = True
+        updated_members.append(m)
+        
+    if need_update:
+        print(f"DEBUG: Backfilling name for user {current_user.id} in group {group_id}")
+        group_ref.update({"members": updated_members})
+
+    return {"status": "sent"}
+
+@router.get("/{group_id}/chat")
+def get_chat_messages(group_id: str, limit: int = 50, current_user: UserInDB = Depends(get_current_user)):
+    group_ref = db.collection('groups').document(group_id)
+    doc = group_ref.get()
+    
+    if not doc.exists:
+         raise HTTPException(status_code=404, detail="Group not found")
+         
+    # Check membership
+    g_data = doc.to_dict()
+    is_member = any(m['user_id'] == current_user.id for m in g_data.get('members', []))
+    if not is_member:
+         raise HTTPException(status_code=403, detail="Not a member")
+         
+    # Query Messages
+    msgs = group_ref.collection('messages').order_by('createdAt', direction=firestore.Query.ASCENDING).limit(limit).stream()
+    
+    results = []
+    for m in msgs:
+        d = m.to_dict()
+        d['id'] = m.id
+        # Convert timestamp to string if needed, or let Pydantic/FastAPI handle json encoding of datetime
+        results.append(d)
+        
+    return results

@@ -98,9 +98,11 @@ class VerificationService:
         detected_price = None
         
         if domain == "unknown":
-            warnings.append("Domain not in whitelist (Amazon/Flipkart). High risk.")
+            warnings.append("Domain not in whitelist. Verification will be generic.")
+            # We allow it but flag it for manual review (Score 10.0 -> PENDING)
+            # AI Similarity matching will still work on the Title provided by user.
             return OfferVerificationResult(
-                is_valid=False,
+                is_valid=True,
                 confidence_score=10.0,
                 detected_platform="unknown",
                 detected_price=None,

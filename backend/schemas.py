@@ -74,6 +74,12 @@ class OfferResponse(OfferBase):
     offer_image: Optional[str] = None
     location: Optional[str] = None
     address_details: Optional[AddressSchema] = None
+    
+    # Duplicate Detection
+    duplicate_of: Optional[str] = None
+    matched_group_id: Optional[str] = None
+    matching_reason: Optional[str] = None
+    similar_offers: Optional[List[Dict]] = [] # List of {id, title, price, score}
 
     
     class Config:
@@ -97,6 +103,10 @@ class GroupResponse(BaseModel):
     target_size: int
     status: GroupStatus
     receiver_id: Optional[str]
+    members: List[Dict]
     
     class Config:
         from_attributes = True
+
+class ChatMessageCreate(BaseModel):
+    text: str
