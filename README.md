@@ -1,4 +1,4 @@
-# Dealicious - AI Group Buy Platform
+# Dealicious 
 
 ## Prerequisites
 - Python 3.9+
