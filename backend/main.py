@@ -23,10 +23,10 @@ app.add_middleware(
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(offers.router, prefix="/offers", tags=["offers"])
 app.include_router(groups.router, prefix="/groups", tags=["groups"])
-app.include_router(groups.router, prefix="/groups", tags=["groups"])
 app.include_router(payments.router, prefix="/payments", tags=["payments"])
-from backend.routers import admin
+from backend.routers import admin, otp_auth
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(otp_auth.router, prefix="", tags=["otp"])
 
 @app.get("/")
 def root():
@@ -35,3 +35,7 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "ok", "db": "connected"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)

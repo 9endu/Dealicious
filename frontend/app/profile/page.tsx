@@ -5,15 +5,21 @@ import Navbar from "@/components/Navbar";
 import { User as UserIcon, CreditCard, ShieldCheck, Settings, LogOut, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function ProfilePage() {
     const router = useRouter();
+    const { logout, user: authUser } = useAuth(); // getting user from context too if needed, but keeping existing fetch logic for now to minimize changes, though it is redundant.
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchUser = async () => {
+            // detailed fetch logic remains... 
             const userId = localStorage.getItem("user_id");
             if (!userId) {
+                // If no local storage user_id, check auth context or redirect
+                // But for now keeping original logic roughly intact but safer
                 router.push("/login");
                 return;
             }
@@ -28,6 +34,8 @@ export default function ProfilePage() {
             }
         };
 
+        // Use authUser to maybe skip fetch?
+        // For now, let's just leave the fetch logic but fix logout.
         fetchUser();
     }, [router]);
 
@@ -53,9 +61,8 @@ export default function ProfilePage() {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.clear();
-        router.push("/");
+    const handleLogout = async () => {
+        await logout();
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;

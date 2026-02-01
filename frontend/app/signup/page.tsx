@@ -6,6 +6,8 @@ import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, ArrowRight } from "lucide-react";
+import AuthProviders from "@/components/AuthProviders";
+import CursorBackground from "@/components/CursorBackground";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -49,10 +51,7 @@ export default function SignupPage() {
         <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
 
             {/* Background Ambience */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-indigo-500/20 rounded-full blur-[120px]" />
-                <div className="absolute top-[40%] -right-[10%] w-[40%] h-[40%] bg-purple-500/20 rounded-full blur-[120px]" />
-            </div>
+            <CursorBackground />
 
             <div className="max-w-md w-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10">
                 <div className="text-center mb-8">
@@ -107,6 +106,8 @@ export default function SignupPage() {
                         {loading ? <Loader2 className="animate-spin" /> : <>Get Started <ArrowRight className="w-4 h-4" /></>}
                     </button>
                 </form>
+
+                <AuthProviders />
 
                 <div className="mt-6 text-center text-sm text-gray-500">
                     Already have an account?{" "}

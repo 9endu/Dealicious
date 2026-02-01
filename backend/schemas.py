@@ -12,7 +12,7 @@ class AddressSchema(BaseModel):
     pincode: str
     
 class UserBase(BaseModel):
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
 
@@ -38,6 +38,8 @@ class UserResponse(UserBase):
     id: str
     trust_score: float
     kyc_level: KYCLevel
+    is_email_verified: bool = False
+    is_phone_verified: bool = False
     created_at: datetime
     
 

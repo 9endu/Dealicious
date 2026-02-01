@@ -11,9 +11,9 @@ from datetime import datetime
 router = APIRouter()
 
 class UserSync(BaseModel):
-    full_name: str
-    phone: str
-    email: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
 
 @router.post("/sync", response_model=UserResponse)
 def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)):

@@ -8,6 +8,7 @@ from firebase_admin import firestore
 from datetime import datetime
 import uuid
 
+
 router = APIRouter()
 
 @router.post("/", response_model=GroupResponse)
@@ -139,6 +140,9 @@ def get_my_groups(current_user: UserInDB = Depends(get_current_user)):
             
     return my_groups
 
+
+
+
 @router.post("/{group_id}/join", response_model=GroupResponse)
 def join_group(group_id: str, join_data: GroupJoin, current_user: UserInDB = Depends(get_current_user)):
     transaction = db.transaction()
@@ -169,7 +173,7 @@ def join_group(group_id: str, join_data: GroupJoin, current_user: UserInDB = Dep
         if any(m['user_id'] == current_user.id for m in group_data.get('members', [])):
              raise HTTPException(status_code=400, detail="Already a member")
 
-        if current_user.trust_score < 30.0:
+        if current_user.trust_score < 20.0:
              raise HTTPException(status_code=403, detail="Trust score too low.")
 
         # Add Member
