@@ -32,3 +32,5 @@ coverage/
 .idea/
 *.swp
 *.swo
+verification_script.py
+verification_report.txt

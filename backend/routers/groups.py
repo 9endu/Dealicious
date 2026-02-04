@@ -45,7 +45,8 @@ def create_group(group: GroupCreate, current_user: UserInDB = Depends(get_curren
             "joined_at": datetime.utcnow().isoformat(),
             "address": group.address_details.model_dump() if group.address_details else None,
             "coordinates": coords
-        }]
+        }],
+        "member_ids": [current_user.id]
     }
 
     
@@ -73,21 +74,36 @@ def get_groups(limit: int = 20):
     docs = db.collection('groups').where("status", "==", GroupStatus.FORMING.value).limit(limit).stream()
     groups = []
     
-    # Batch fetch offers might be better, but for now simple loop
+    # 1. Collect all groups first
+    group_list = []
+    offer_refs = set()
+    
     for doc in docs:
         g_data = doc.to_dict()
         g_data['id'] = doc.id
-        
-        # Fetch associated offer
+        group_list.append(g_data)
         if 'offer_id' in g_data:
-            o_snap = db.collection('offers').document(g_data['offer_id']).get()
-            if o_snap.exists:
-                o_data = o_snap.to_dict()
-                o_data['id'] = g_data['offer_id']
-                g_data['offer'] = o_data
-                groups.append(g_data)
-            else:
-                print(f"WARNING: Group {doc.id} has invalid offer_id {g_data['offer_id']}")
+            offer_refs.add(db.collection('offers').document(g_data['offer_id']))
+            
+    # 2. Batch Fetch Offers
+    offer_map = {}
+    if offer_refs:
+        try:
+             # get_all takes a list of references
+             offers_snaps = db.get_all(list(offer_refs))
+             for o_snap in offers_snaps:
+                 if o_snap.exists:
+                     o_data = o_snap.to_dict()
+                     o_data['id'] = o_snap.id
+                     offer_map[o_snap.id] = o_data
+        except Exception as e:
+            print(f"Batch fetch error: {e}")
+
+    # 3. Join
+    for g_data in group_list:
+        if 'offer_id' in g_data and g_data['offer_id'] in offer_map:
+             g_data['offer'] = offer_map[g_data['offer_id']]
+        groups.append(g_data)
                 
     return groups
 
@@ -112,33 +128,39 @@ def get_group(group_id: str):
 
 @router.get("/me/list", response_model=list[GroupResponse])
 def get_my_groups(current_user: UserInDB = Depends(get_current_user)):
-    # Query groups where user is a member
-    # Firestore doesn't support array-contains-any easily on complex objects, 
-    # but we can query by 'members.user_id' if we index it, or just client side filter for MVP
-    # Ideally, we should have a top-level array "member_ids" for querying.
-    
-    # For now, let's fetch all (inefficient) or better, fix data model later.
-    # Actually, let's iterate.
-    docs = db.collection('groups').stream()
-    my_groups = []
+    # Optimized query using member_ids
+    docs = db.collection('groups').where("member_ids", "array_contains", current_user.id).stream()
+    my_groups_list = []
+    offer_refs = set()
     
     for doc in docs:
         data = doc.to_dict()
         data['id'] = doc.id
-        
-        # Check membership
-        is_member = any(m['user_id'] == current_user.id for m in data.get('members', []))
-        if is_member:
-            # Fetch offer
-            if 'offer_id' in data:
-                 o_snap = db.collection('offers').document(data['offer_id']).get()
+        my_groups_list.append(data)
+        if 'offer_id' in data:
+            offer_refs.add(db.collection('offers').document(data['offer_id']))
+    
+    # Batch Fetch Offers
+    offer_map = {}
+    if offer_refs:
+        try:
+             offers_snaps = db.get_all(list(offer_refs))
+             for o_snap in offers_snaps:
                  if o_snap.exists:
                      o_data = o_snap.to_dict()
-                     o_data['id'] = data['offer_id']
-                     data['offer'] = o_data
-            my_groups.append(data)
+                     o_data['id'] = o_snap.id
+                     offer_map[o_snap.id] = o_data
+        except Exception as e:
+            print(f"Batch fetch error: {e}")
+
+    # Join
+    result_groups = []
+    for data in my_groups_list:
+        if 'offer_id' in data and data['offer_id'] in offer_map:
+            data['offer'] = offer_map[data['offer_id']]
+        result_groups.append(data)
             
-    return my_groups
+    return result_groups
 
 
 
@@ -192,7 +214,8 @@ def join_group(group_id: str, join_data: GroupJoin, current_user: UserInDB = Dep
         
         updates = {
             "members": updated_members,
-            "current_size": updated_size
+            "current_size": updated_size,
+            "member_ids": firestore.ArrayUnion([current_user.id])
         }
         
         # AI Logic: Check if Full

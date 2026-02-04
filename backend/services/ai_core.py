@@ -1,6 +1,9 @@
 import logging
 import re
 from typing import List, Dict
+# Move imports inside lazy loader or keep if lightweight? 
+# SentenceTransformer is heavy to import too? 
+# Usually the import is fast, the model load is slow.
 from sentence_transformers import SentenceTransformer, util
 import easyocr
 import numpy as np
@@ -12,33 +15,52 @@ from backend.schemas import OfferVerificationResult
 
 logger = logging.getLogger(__name__)
 
-# Initialize Global Models (Lazy loading recommended in production, but loading here for "Real" feel)
-print("Loading AI Models... This might take a moment.")
-try:
-    # Lightweight BERT model for sentence embeddings
-    embedding_model = SentenceTransformer('all-MiniLM-L6-v2') 
-    # NOTE for User: 'all-MiniLM-L6-v2' is the best trade-off for speed/accuracy. 
-    # If higher accuracy is needed at cost of speed, switch to 'all-mpnet-base-v2'.
-    
-    # OCR Reader
-    ocr_reader = easyocr.Reader(['en']) # GPU=False if needed by environment
-    MODELS_LOADED = True
-except Exception as e:
-    print(f"Failed to load AI models: {e}")
-    MODELS_LOADED = False
-
 class AIService:
+    def __init__(self):
+        self._embedding_model = None
+        self._ocr_reader = None
+        self.models_loaded = False
+
+    def _load_models(self):
+        if self.models_loaded: return
+        
+        print("Lazy Loading AI Models... This might take a moment.")
+        try:
+            if not self._embedding_model:
+                self._embedding_model = SentenceTransformer('all-MiniLM-L6-v2') 
+            
+            if not self._ocr_reader:
+                self._ocr_reader = easyocr.Reader(['en'])
+                
+            self.models_loaded = True
+        except Exception as e:
+            logger.error(f"Failed to load AI models: {e}")
+            self.models_loaded = False
+
+    @property
+    def embedding_model(self):
+        self._load_models()
+        return self._embedding_model
+
+    @property
+    def ocr_reader(self):
+        self._load_models()
+        return self._ocr_reader
+
     
     def calculate_similarity(self, text1: str, text2: str) -> float:
         """
         Calculates semantic similarity between two product titles using BERT embeddings.
         Returns score between 0.0 and 1.0
         """
-        if not MODELS_LOADED:
+        # Triggers lazy load
+        model = self.embedding_model
+        
+        if not self.models_loaded or not model:
             return 0.5 # Fallback
             
-        embedding1 = embedding_model.encode(text1, convert_to_tensor=True)
-        embedding2 = embedding_model.encode(text2, convert_to_tensor=True)
+        embedding1 = model.encode(text1, convert_to_tensor=True)
+        embedding2 = model.encode(text2, convert_to_tensor=True)
         
         score = util.pytorch_cos_sim(embedding1, embedding2).item()
         return float(score)
@@ -47,7 +69,10 @@ class AIService:
         """
         Uses EasyOCR to extract text from screenshot.
         """
-        if not MODELS_LOADED:
+        # Triggers lazy load
+        reader = self.ocr_reader
+        
+        if not self.models_loaded or not reader:
             return ""
             
         try:
@@ -55,7 +80,7 @@ class AIService:
             # Convert to numpy for EasyOCR
             image_np = np.array(image)
             
-            result = ocr_reader.readtext(image_np)
+            result = reader.readtext(image_np)
             text = " ".join([res[1] for res in result])
             return text
         except Exception as e:

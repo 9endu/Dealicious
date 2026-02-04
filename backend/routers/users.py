@@ -14,6 +14,7 @@ class UserSync(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    username: Optional[str] = None
 
 @router.post("/sync", response_model=UserResponse)
 def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)):
@@ -33,6 +34,7 @@ def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)
         user_dict = {
             "id": uid,
             "full_name": user_data.full_name,
+            "username": user_data.username,
             "phone": user_data.phone,
             "email": user_data.email,
             "is_email_verified": False,
@@ -62,6 +64,10 @@ def sync_user(user_data: UserSync, token_data: dict = Depends(get_decoded_token)
         if not data.get('full_name') and user_data.full_name:
             updates['full_name'] = user_data.full_name
             data['full_name'] = user_data.full_name
+
+        if not data.get('username') and user_data.username:
+            updates['username'] = user_data.username
+            data['username'] = user_data.username
             
         if not data.get('phone') and user_data.phone:
             updates['phone'] = user_data.phone
@@ -98,4 +104,8 @@ def verify_contact(req: dict, current_user: UserInDB = Depends(get_current_user)
     elif req.get('type') == "phone":
         user_ref.update({"is_phone_verified": True, "trust_score": firestore.Increment(20)})
     
-    return {"status": "verified"}
+    # Fetch updated doc to get new score
+    updated_doc = user_ref.get()
+    new_score = updated_doc.to_dict().get('trust_score', 0)
+
+    return {"status": "verified", "new_trust_score": new_score}

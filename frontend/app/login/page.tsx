@@ -34,10 +34,10 @@ export default function LoginPage() {
             localStorage.setItem("user_id", user.uid);
 
             router.push("/dashboard");
+            // Do NOT set loading to false here, so the spinner persists during navigation
         } catch (error: any) {
             console.error(error);
             alert("Login Failed: " + error.message);
-        } finally {
             setLoading(false);
         }
     };

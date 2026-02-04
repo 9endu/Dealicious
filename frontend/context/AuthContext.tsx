@@ -6,10 +6,11 @@ import { useRouter, usePathname } from "next/navigation";
 import api from "@/lib/api";
 
 type UserData = {
-    uid: string;
+    id: string; // Backend returns 'id', not 'uid'
     email: string | null;
     phone: string | null;
     full_name: string | null;
+    username: string | null;
 
     // Verification Flags
     is_email_verified: boolean;
@@ -26,6 +27,7 @@ type AuthContextType = {
     loading: boolean;
     firebaseUser: FirebaseUser | null;
     refreshUser: () => Promise<void>;
+    updateUser: (data: Partial<UserData>) => void;
     logout: () => Promise<void>;
 };
 
@@ -34,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     firebaseUser: null,
     refreshUser: async () => { },
+    updateUser: () => { },
     logout: async () => { },
 });
 
@@ -129,8 +132,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [user, loading, pathname, router]);
 
 
+    const updateUser = (data: Partial<UserData>) => {
+        if (user) {
+            setUser({ ...user, ...data });
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, firebaseUser, refreshUser, logout }}>
+        <AuthContext.Provider value={{ user, loading, firebaseUser, refreshUser, updateUser, logout }}>
             {children}
         </AuthContext.Provider>
     );

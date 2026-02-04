@@ -1,8 +1,19 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { ArrowRight, ShieldCheck, Users, Zap } from "lucide-react";
 
+
 export default function LandingPage() {
+    const router = useRouter();
+    const [isLoading, setIsLoading] = useState(""); // "" | "signup" | "login"
+
+    const handleNav = (path: string, key: string) => {
+        setIsLoading(key);
+        router.push(path);
+    };
+
     return (
         <div className="min-h-screen bg-slate-950 text-white flex flex-col">
             {/* Nav */}
@@ -10,12 +21,13 @@ export default function LandingPage() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                     Dealicious
                 </h1>
-                <Link
-                    href="/login"
-                    className="text-sm font-medium hover:text-indigo-300 transition-colors"
+                <button
+                    onClick={() => handleNav("/login", "nav-login")}
+                    className="text-sm font-medium hover:text-indigo-300 transition-colors disabled:opacity-50"
+                    disabled={!!isLoading}
                 >
-                    Login
-                </Link>
+                    {isLoading === "nav-login" ? "..." : "Login"}
+                </button>
             </nav>
 
             {/* Hero */}
@@ -38,19 +50,29 @@ export default function LandingPage() {
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                        <Link
-                            href="/signup"
-                            className="bg-white text-slate-950 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                        <button
+                            onClick={() => handleNav("/signup", "signup")}
+                            disabled={!!isLoading}
+                            className="bg-white text-slate-950 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100"
                         >
-                            Get Started
-                            <ArrowRight className="w-5 h-5" />
-                        </Link>
-                        <Link
-                            href="/login"
-                            className="bg-slate-800 text-white border border-slate-700 px-8 py-4 rounded-full font-bold text-lg hover:bg-slate-700 transition-all flex items-center justify-center"
+                            {isLoading === "signup" ? (
+                                <span className="animate-spin w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full" />
+                            ) : (
+                                <>
+                                    Get Started
+                                    <ArrowRight className="w-5 h-5" />
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => handleNav("/login", "login")}
+                            disabled={!!isLoading}
+                            className="bg-slate-800 text-white border border-slate-700 px-8 py-4 rounded-full font-bold text-lg hover:bg-slate-700 transition-all flex items-center justify-center disabled:opacity-70"
                         >
-                            Log In
-                        </Link>
+                            {isLoading === "login" ? (
+                                <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                            ) : "Log In"}
+                        </button>
                     </div>
                 </div>
 

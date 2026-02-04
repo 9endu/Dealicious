@@ -9,35 +9,59 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function ProfilePage() {
     const router = useRouter();
-    const { logout, user: authUser } = useAuth(); // getting user from context too if needed, but keeping existing fetch logic for now to minimize changes, though it is redundant.
+    const { logout, user: authUser, loading: authLoading } = useAuth();
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchUser = async () => {
-            // detailed fetch logic remains... 
-            const userId = localStorage.getItem("user_id");
-            if (!userId) {
-                // If no local storage user_id, check auth context or redirect
-                // But for now keeping original logic roughly intact but safer
-                router.push("/login");
-                return;
-            }
+        // If auth is still loading, wait
+        if (authLoading) return;
 
-            try {
-                const res = await api.get(`/users/${userId}`);
-                setUser(res.data);
-            } catch (error) {
-                console.error("Failed to fetch profile", error);
-            } finally {
+        // If no user in auth context, redirect to login
+        if (!authUser && !localStorage.getItem('token')) {
+            router.push("/login");
+            return;
+        }
+
+        // If we have authUser from context, use it immediately for instant load
+        if (authUser) {
+            setUser(authUser);
+            setLoading(false);
+        }
+
+        // We can still fetch latest to ensure freshness, or rely on Context refresh
+        // For now, let's redundant fetch only if context missing or to refresh score
+        const fetchUser = async () => {
+            const userId = localStorage.getItem("user_id") || authUser?.id; // Note: authUser.id might correspond to 'uid' field depending on Data map
+            // In AuthContext 'uid' is mapped? No, looking at auth.py it returns id=uid.
+            // In AuthContext, UserData type has 'uid' but checks response from /users/{uid} which returns 'id'.
+            // Let's use authUser.uid (mapped in Context type) or 'id' if response has it.
+            // Check AuthContext.tsx type definition: type UserData = { uid: string ... }
+            // But api /users/{uid} returns { id: ... } 
+
+            // Actually, let's fix the variable name confusion.
+            // Ideally we just use what context gives.
+
+            // If we have authUser, we are good.
+            if (authUser) return;
+
+            // Fallback fetch if context is empty but token exists (edge case)
+            if (userId) {
+                try {
+                    const res = await api.get(`/users/${userId}`);
+                    setUser(res.data);
+                } catch (error) {
+                    console.error("Failed to fetch profile", error);
+                } finally {
+                    setLoading(false);
+                }
+            } else {
                 setLoading(false);
             }
         };
 
-        // Use authUser to maybe skip fetch?
-        // For now, let's just leave the fetch logic but fix logout.
         fetchUser();
-    }, [router]);
+    }, [router, authUser, authLoading]);
 
     const handleVerify = async (type: "email" | "phone") => {
         const otp = prompt(`Enter OTP sent to your ${type} (Simulated: Enter 1234):`);
@@ -72,11 +96,14 @@ export default function ProfilePage() {
             <main className="max-w-md mx-auto p-4 space-y-6">
                 <div className="flex flex-col items-center py-8">
                     <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-pink-500 to-indigo-500 p-1 mb-4">
-                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 border-4 border-transparent overflow-hidden flex items-center justify-center text-3xl font-bold text-gray-700">
-                            {user?.full_name?.[0]}
+                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 border-4 border-transparent overflow-hidden flex items-center justify-center text-3xl font-bold text-gray-700 dark:text-gray-200">
+                            {(user?.full_name || user?.username || "M")?.[0]?.toUpperCase()}
                         </div>
                     </div>
-                    <h2 className="text-xl font-bold">{user?.full_name}</h2>
+                    {/* Show Full Name primarily */}
+                    <h2 className="text-xl font-bold">{user?.full_name || "Member"}</h2>
+                    {user?.username && <p className="text-sm text-gray-500">@{user.username}</p>}
+
                     <div className="flex items-center gap-1 text-green-500 font-medium text-sm mt-1">
                         <ShieldCheck className="w-4 h-4" /> Trust Score: {user?.trust_score}
                     </div>

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,6 +14,7 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({
         full_name: "",
+        username: "",
         email: "",
         phone: "",
         password: ""
@@ -25,10 +26,17 @@ export default function SignupPage() {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
             const user = userCredential.user;
-            const token = await user.getIdToken();
+
+            // Update Profile in Firebase Auth immediately
+            await updateProfile(user, {
+                displayName: form.full_name
+            });
+
+            const token = await user.getIdToken(true); // Force refresh to get claims with name
 
             await api.post("/users/sync", {
                 full_name: form.full_name,
+                username: form.username,
                 phone: form.phone,
                 email: form.email
             }, {
@@ -37,7 +45,8 @@ export default function SignupPage() {
 
             localStorage.setItem("token", token);
             localStorage.setItem("user_id", user.uid);
-            router.push("/dashboard");
+            // Redirect to Verification Page as requested
+            router.push("/verify-account");
 
         } catch (error: any) {
             console.error(error);
@@ -71,6 +80,14 @@ export default function SignupPage() {
                             placeholder="Full Name"
                             value={form.full_name}
                             onChange={e => setForm({ ...form, full_name: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            required
+                            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-white"
+                            placeholder="Username"
+                            value={form.username}
+                            onChange={e => setForm({ ...form, username: e.target.value })}
                         />
                         <input
                             type="email"

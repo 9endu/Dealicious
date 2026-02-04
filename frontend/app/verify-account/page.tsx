@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { CheckCircle, ShieldAlert, Mail, Phone, ArrowRight, Loader2, LogOut } from "lucide-react";
 
 export default function VerifyAccountPage() {
-    const { user, loading, firebaseUser, logout } = useAuth();
+    const { user, loading, firebaseUser, logout, refreshUser, updateUser } = useAuth();
     const router = useRouter();
     const [emailOtp, setEmailOtp] = useState("");
     const [phoneOtp, setPhoneOtp] = useState("");
@@ -33,7 +33,7 @@ export default function VerifyAccountPage() {
             const res = await fetch("http://localhost:8000/auth/email/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: user?.email }),
+                body: JSON.stringify({ email: userEmail }),
             });
             const data = await res.json();
             if (res.ok) {
@@ -54,13 +54,15 @@ export default function VerifyAccountPage() {
             const res = await fetch("http://localhost:8000/auth/email/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: user?.email, otp: emailOtp }),
+                body: JSON.stringify({ email: userEmail, otp: emailOtp }),
             });
             const data = await res.json();
             if (res.ok) {
                 setEmailStep("verified");
                 setMessage("Email Verified!");
-                // Force reload user data if possible, or just trust UI state for now
+                // Optimistic update to prevent redirect loop
+                updateUser({ is_email_verified: true });
+                await refreshUser();
             } else {
                 setMessage(data.detail || "Verification failed");
             }
@@ -99,6 +101,9 @@ export default function VerifyAccountPage() {
             if (res.ok) {
                 setPhoneStep("verified");
                 setMessage("Phone Verified!");
+                // Optimistic update
+                updateUser({ is_phone_verified: true });
+                await refreshUser();
             } else {
                 setMessage("Invalid Phone OTP");
             }
@@ -108,17 +113,28 @@ export default function VerifyAccountPage() {
         setIsSubmitting(false);
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
+        // Double check
+        await refreshUser();
+        // The AuthContext useEffect handles the redirect if verified
+        // But we can also push explicitly
         if (emailStep === "verified" && phoneStep === "verified") {
-            router.push("/");
+            router.push("/dashboard");
         }
     };
 
     if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-white" /></div>;
 
-    if (!user) {
+    // Use firebaseUser as fallback if profile fetch failed but auth exists
+    const currentUser = user || (firebaseUser as any);
+
+    if (!currentUser) {
         return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Please Log In first.</div>
     }
+
+    // Safely access properties
+    const userEmail = user?.email || firebaseUser?.email;
+    const userPhone = user?.phone || firebaseUser?.phoneNumber;
 
     return (
         <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
@@ -143,7 +159,7 @@ export default function VerifyAccountPage() {
 
                     {emailStep !== 'verified' && (
                         <div className="space-y-3">
-                            <p className="text-sm text-gray-400">{user.email}</p>
+                            <p className="text-sm text-gray-400">{userEmail}</p>
                             {emailStep === 'idle' ? (
                                 <button
                                     onClick={handleSendEmailOtp}

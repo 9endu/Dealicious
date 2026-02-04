@@ -13,6 +13,26 @@ const config: Config = {
                 dark: "#0f172a", // Slate 900
                 paper: "#1e293b", // Slate 800
             },
+            keyframes: {
+                'bounce-slight': {
+                    '0%, 100%': { transform: 'translateY(-10%)' },
+                    '50%': { transform: 'translateY(0)' },
+                },
+                'fade-in': {
+                    '0%': { opacity: '0' },
+                    '100%': { opacity: '1' },
+                },
+                'progress-indeterminate': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '50%': { transform: 'translateX(0%)' },
+                    '100%': { transform: 'translateX(100%)' },
+                }
+            },
+            animation: {
+                'bounce-slight': 'bounce-slight 2s infinite ease-in-out',
+                'fade-in': 'fade-in 0.5s ease-out forwards',
+                'progress-indeterminate': 'progress-indeterminate 1.5s infinite linear',
+            }
         },
     },
     plugins: [],
