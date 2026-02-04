@@ -1,9 +1,14 @@
 {
-  "/signup/page": "app/signup/page.js",
-  "/login/page": "app/login/page.js",
+  "/_not-found": "app/_not-found.js",
+  "/admin/page": "app/admin/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/post/page": "app/post/page.js",
-  "/page": "app/page.js",
   "/groups/page": "app/groups/page.js",
-  "/profile/page": "app/profile/page.js"
+  "/login/page": "app/login/page.js",
+  "/group/page": "app/group/page.js",
+  "/group/[id]/page": "app/group/[id]/page.js",
+  "/profile/page": "app/profile/page.js",
+  "/page": "app/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/post/page": "app/post/page.js",
+  "/verify-account/page": "app/verify-account/page.js"
 }

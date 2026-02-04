@@ -34,3 +34,7 @@ coverage/
 *.swo
 verification_script.py
 verification_report.txt
+
+# Next.js
+frontend/.next/
+.next/
