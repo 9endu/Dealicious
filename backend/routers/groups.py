@@ -103,8 +103,10 @@ def get_groups(limit: int = 20):
     for g_data in group_list:
         if 'offer_id' in g_data and g_data['offer_id'] in offer_map:
              g_data['offer'] = offer_map[g_data['offer_id']]
-        groups.append(g_data)
-                
+             groups.append(g_data)
+        else:
+             print(f"WARNING: Group {g_data.get('id')} has missing offer {g_data.get('offer_id')}. Skipping.")
+
     return groups
 
 @router.get("/{group_id}", response_model=GroupResponse)
@@ -158,8 +160,10 @@ def get_my_groups(current_user: UserInDB = Depends(get_current_user)):
     for data in my_groups_list:
         if 'offer_id' in data and data['offer_id'] in offer_map:
             data['offer'] = offer_map[data['offer_id']]
-        result_groups.append(data)
-            
+            result_groups.append(data)
+        else:
+             print(f"WARNING: My Group {data.get('id')} has missing offer {data.get('offer_id')}. Skipping.")
+
     return result_groups
 
 
